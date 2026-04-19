@@ -50,6 +50,7 @@ export default function App() {
   const [deletingId, setDeletingId] = useState(null);
   const [summaryMonth, setSummaryMonth] = useState(initialMonth);
   const [summaryYear, setSummaryYear] = useState(initialYear);
+  const [editingEntry, setEditingEntry] = useState(null);
   const hiddenInput = useRef(null);
   const toastTimerRef = useRef(null);
 
@@ -61,6 +62,14 @@ export default function App() {
     }
     setToast({ message, tone });
     toastTimerRef.current = window.setTimeout(() => setToast(null), 2400);
+  }
+
+  function resetEntryForm() {
+    setAmount("");
+    setCategory("Food");
+    setNote("");
+    setDate(todayStr());
+    setEditingEntry(null);
   }
 
   async function loadExpensesForUser(userId, isActive = () => true) {
@@ -104,7 +113,10 @@ export default function App() {
       const nextSession = data.session ?? null;
       startTransition(() => {
         setSession(nextSession);
-        if (!nextSession) setExpenses([]);
+        if (!nextSession) {
+          setExpenses([]);
+          setEditingEntry(null);
+        }
       });
 
       if (nextSession?.user?.id) {
@@ -185,13 +197,27 @@ export default function App() {
     }
 
     setTab("add");
-    setAmount("");
-    setNote("");
-    setDate(todayStr());
+    resetEntryForm();
     showToast("Signed out");
   }
 
-  async function handleAdd() {
+  function handleStartEdit(entry) {
+    setEditingEntry(entry);
+    setTab("add");
+    setAmount(String(entry.amount));
+    setCategory(entry.category);
+    setNote(entry.note ?? "");
+    setDate(entry.date);
+    window.setTimeout(() => hiddenInput.current?.focus(), 0);
+    showToast("Editing entry");
+  }
+
+  function handleCancelEdit() {
+    resetEntryForm();
+    setError("");
+  }
+
+  async function handleSaveEntry() {
     if (!supabase || !user) return;
 
     const parsedAmount = Number.parseFloat(amount);
@@ -206,28 +232,35 @@ export default function App() {
     setError("");
 
     const isIncome = category === "Income";
-    const { error: insertError } = await supabase.from("expenses").insert([
-      {
-        amount: parsedAmount,
-        category,
-        note: trimmedNote || null,
-        date,
-        user_id: user.id,
-      },
-    ]);
+    const payload = {
+      amount: parsedAmount,
+      category,
+      note: trimmedNote || null,
+      date,
+      user_id: user.id,
+    };
+    const { error: saveError } = editingEntry
+      ? await supabase
+          .from("expenses")
+          .update(payload)
+          .eq("id", editingEntry.id)
+          .eq("user_id", user.id)
+      : await supabase.from("expenses").insert([payload]);
 
     setLoading(false);
 
-    if (insertError) {
-      setError(insertError.message);
-      showToast("Save failed", "error");
+    if (saveError) {
+      setError(saveError.message);
+      showToast(editingEntry ? "Update failed" : "Save failed", "error");
       return;
     }
 
-    setAmount("");
-    setNote("");
-    setDate(todayStr());
-    showToast(isIncome ? "Income recorded" : "Expense added", "success");
+    const wasEditing = Boolean(editingEntry);
+    resetEntryForm();
+    showToast(
+      wasEditing ? (isIncome ? "Income updated" : "Expense updated") : isIncome ? "Income recorded" : "Expense added",
+      "success",
+    );
     await loadExpensesForUser(user.id);
   }
 
@@ -255,6 +288,10 @@ export default function App() {
       setError(deleteError.message);
       showToast("Delete failed", "error");
       return;
+    }
+
+    if (editingEntry?.id === entry.id) {
+      resetEntryForm();
     }
 
     showToast("Entry deleted", "success");
@@ -402,13 +439,27 @@ export default function App() {
 
       {tab === "add" && (
         <>
+          {editingEntry && (
+            <div className="edit-banner">
+              <div>
+                <div className="recent-label">Editing entry</div>
+                <div className="history-sub">
+                  {editingEntry.category} · {fullDateLabel(editingEntry.date)}
+                </div>
+              </div>
+              <button className="ghost-btn" type="button" onClick={handleCancelEdit}>
+                Cancel
+              </button>
+            </div>
+          )}
+
           <div className="amount-zone" onClick={() => hiddenInput.current?.focus()}>
-            <div className="amount-zone-label">Enter amount</div>
+            <div className="amount-zone-label">{editingEntry ? "Update amount" : "Enter amount"}</div>
             <div className={`amount-display${!amount ? " empty" : ""}`}>
               {amount ? fmtINR(Number.parseFloat(amount) || 0) : "₹0"}
               <span className="amount-cursor" />
             </div>
-            <div className="tap-hint">tap to type</div>
+            <div className="tap-hint">{editingEntry ? "tap to edit" : "tap to type"}</div>
           </div>
 
           <input
@@ -420,7 +471,7 @@ export default function App() {
             step="0.01"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && handleAdd()}
+            onKeyDown={(event) => event.key === "Enter" && handleSaveEntry()}
           />
 
           <div className="cat-grid">
@@ -464,9 +515,26 @@ export default function App() {
           </div>
 
           <div className="add-btn-wrap">
-            <button className="add-btn" type="button" onClick={handleAdd} disabled={loading || !amount}>
-              {loading ? "Saving…" : category === "Income" ? "Record Income" : "Add Expense"}
-            </button>
+            <div className="form-actions">
+              <button className="add-btn" type="button" onClick={handleSaveEntry} disabled={loading || !amount}>
+                {loading
+                  ? editingEntry
+                    ? "Updating…"
+                    : "Saving…"
+                  : editingEntry
+                    ? category === "Income"
+                      ? "Update Income"
+                      : "Update Expense"
+                    : category === "Income"
+                      ? "Record Income"
+                      : "Add Expense"}
+              </button>
+              {editingEntry && (
+                <button className="secondary-btn" type="button" onClick={handleCancelEdit} disabled={loading}>
+                  Keep current and cancel
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="rule" />
@@ -486,6 +554,8 @@ export default function App() {
                   key={entry.id}
                   deletingId={deletingId}
                   e={entry}
+                  editingId={editingEntry?.id}
+                  onEdit={handleStartEdit}
                   onDelete={handleDelete}
                 />
               ))
@@ -510,6 +580,8 @@ export default function App() {
                 key={entry.id}
                 deletingId={deletingId}
                 e={entry}
+                editingId={editingEntry?.id}
+                onEdit={handleStartEdit}
                 onDelete={handleDelete}
                 showDate
               />
@@ -523,8 +595,7 @@ export default function App() {
           <div className="history-head summary-head">
             <div>
               <div className="recent-label">Monthly summary</div>
-              <div className="history-sub">Review any past month and export its entries</div>
-            </div>
+              </div>
             <button
               className="ghost-btn"
               type="button"
@@ -634,6 +705,8 @@ export default function App() {
                   key={entry.id}
                   deletingId={deletingId}
                   e={entry}
+                  editingId={editingEntry?.id}
+                  onEdit={handleStartEdit}
                   onDelete={handleDelete}
                   showDate
                 />
@@ -675,9 +748,10 @@ export default function App() {
   );
 }
 
-function TxnRow({ e, showDate = false, onDelete, deletingId }) {
+function TxnRow({ e, showDate = false, onDelete, onEdit, deletingId, editingId }) {
   const isIncome = e.category === "Income";
   const category = CATEGORIES.find((item) => item.name === e.category) || CATEGORIES[4];
+  const isEditing = editingId === e.id;
 
   return (
     <div className="txn-row">
@@ -694,14 +768,19 @@ function TxnRow({ e, showDate = false, onDelete, deletingId }) {
           {isIncome ? "+" : "−"}
           {fmtINR(e.amount)}
         </div>
-        <button
-          className="delete-btn"
-          type="button"
-          onClick={() => onDelete(e)}
-          disabled={deletingId === e.id}
-        >
-          {deletingId === e.id ? "Deleting…" : "Delete"}
-        </button>
+        <div className="txn-actions">
+          <button className={`edit-btn ${isEditing ? "active" : ""}`} type="button" onClick={() => onEdit(e)}>
+            {isEditing ? "Editing" : "Edit"}
+          </button>
+          <button
+            className="delete-btn"
+            type="button"
+            onClick={() => onDelete(e)}
+            disabled={deletingId === e.id}
+          >
+            {deletingId === e.id ? "Deleting…" : "Delete"}
+          </button>
+        </div>
       </div>
     </div>
   );
