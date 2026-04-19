@@ -373,7 +373,8 @@
 
 .txn-list,
 .history-list,
-.chart-panel-shell {
+.chart-panel-shell,
+.summary-panel-shell {
   padding: 0 20px 20px;
 }
 
@@ -473,6 +474,109 @@
 
 .chart-loading {
   padding-top: 48px;
+}
+
+.summary-head {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.summary-filter-card,
+.category-summary-card,
+.summary-list {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+}
+
+.summary-filter-card,
+.category-summary-card {
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.summary-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-field {
+  display: grid;
+  gap: 8px;
+}
+
+.summary-field-label {
+  font-size: 10px;
+  color: var(--gray-4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.summary-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--gray-2);
+  outline: none;
+  appearance: none;
+}
+
+.summary-select:focus {
+  border-color: var(--border3);
+}
+
+.summary-row-period {
+  padding: 0 0 12px;
+}
+
+.summary-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 12px;
+}
+
+.category-summary-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.category-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.category-summary-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.category-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.category-summary-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
+}
+
+.summary-list {
+  padding: 0 16px;
 }
 
 .bottom-nav {
@@ -749,5 +853,14 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .summary-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

@@ -1,10 +1,24 @@
 import { lazy, Suspense, startTransition, useEffect, useRef, useState } from "react";
 import { supabase, hasSupabaseConfig } from "./services/supabase";
 import { fmtINR } from "./utils/format";
-import { fullDateLabel, isSameMonth, monthLabel, todayStr } from "./utils/date";
+import { fullDateLabel, getYear, isSameMonth, monthLabel, todayStr } from "./utils/date";
 import "./App.css";
 
 const ChartPanel = lazy(() => import("./components/ChartPanel"));
+const MONTH_OPTIONS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 const CATEGORIES = [
   { name: "Fuel", icon: "⛽" },
@@ -16,6 +30,9 @@ const CATEGORIES = [
 ];
 
 export default function App() {
+  const now = new Date();
+  const initialMonth = now.getMonth();
+  const initialYear = now.getFullYear();
   const [session, setSession] = useState(null);
   const [tab, setTab] = useState("add");
   const [amount, setAmount] = useState("");
@@ -31,6 +48,8 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [sendingLink, setSendingLink] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [summaryMonth, setSummaryMonth] = useState(initialMonth);
+  const [summaryYear, setSummaryYear] = useState(initialYear);
   const hiddenInput = useRef(null);
   const toastTimerRef = useRef(null);
 
@@ -242,9 +261,8 @@ export default function App() {
     await loadExpensesForUser(user.id);
   }
 
-  const now = new Date();
-  const curMonth = now.getMonth();
-  const curYear = now.getFullYear();
+  const curMonth = initialMonth;
+  const curYear = initialYear;
   const thisMonth = expenses.filter((entry) => isSameMonth(entry.date, curMonth, curYear));
   const monthIncome = thisMonth
     .filter((entry) => entry.category === "Income")
@@ -255,6 +273,57 @@ export default function App() {
   const monthNet = monthIncome - monthExpense;
   const savePct = monthIncome > 0 ? Math.round((monthNet / monthIncome) * 100) : 0;
   const monthTitle = now.toLocaleString("en-IN", { month: "long", year: "numeric" });
+  const summaryEntries = expenses.filter((entry) => isSameMonth(entry.date, summaryMonth, summaryYear));
+  const summaryIncome = summaryEntries
+    .filter((entry) => entry.category === "Income")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const summaryExpense = summaryEntries
+    .filter((entry) => entry.category !== "Income")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const summaryNet = summaryIncome - summaryExpense;
+  const availableYears = Array.from(
+    new Set([initialYear, ...expenses.map((entry) => getYear(entry.date)).filter(Number.isFinite)]),
+  ).sort((a, b) => b - a);
+  const categoryBreakdown = CATEGORIES.map((item) => {
+    const total = summaryEntries
+      .filter((entry) => entry.category === item.name)
+      .reduce((sum, entry) => sum + entry.amount, 0);
+
+    return {
+      ...item,
+      total,
+      count: summaryEntries.filter((entry) => entry.category === item.name).length,
+    };
+  });
+
+  function handleExportCsv() {
+    if (summaryEntries.length === 0) return;
+
+    const period = `${summaryYear}-${String(summaryMonth + 1).padStart(2, "0")}`;
+    const rows = summaryEntries.map((entry) => ({
+      date: entry.date,
+      category: entry.category,
+      type: entry.category === "Income" ? "income" : "expense",
+      note: entry.note ?? "",
+      amount: entry.amount,
+    }));
+    const lines = [
+      ["date", "category", "type", "note", "amount"].join(","),
+      ...rows.map((row) =>
+        [row.date, row.category, row.type, row.note, row.amount]
+          .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+          .join(","),
+      ),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `expenses-${period}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+    showToast(`CSV exported for ${MONTH_OPTIONS[summaryMonth]} ${summaryYear}`, "success");
+  }
 
   if (!hasSupabaseConfig) {
     return (
@@ -449,6 +518,131 @@ export default function App() {
         </div>
       )}
 
+      {tab === "summary" && (
+        <div className="summary-panel-shell">
+          <div className="history-head summary-head">
+            <div>
+              <div className="recent-label">Monthly summary</div>
+              <div className="history-sub">Review any past month and export its entries</div>
+            </div>
+            <button
+              className="ghost-btn"
+              type="button"
+              onClick={handleExportCsv}
+              disabled={summaryEntries.length === 0}
+            >
+              Export CSV
+            </button>
+          </div>
+
+          <div className="summary-filter-card">
+            <div className="summary-filter-grid">
+              <label className="summary-field">
+                <span className="summary-field-label">Month</span>
+                <select
+                  className="summary-select"
+                  value={summaryMonth}
+                  onChange={(event) => setSummaryMonth(Number(event.target.value))}
+                >
+                  {MONTH_OPTIONS.map((label, index) => (
+                    <option key={label} value={index}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="summary-field">
+                <span className="summary-field-label">Year</span>
+                <select
+                  className="summary-select"
+                  value={summaryYear}
+                  onChange={(event) => setSummaryYear(Number(event.target.value))}
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="summary-row summary-row-period">
+            <div className="sum-card">
+              <div className="sum-label">Income</div>
+              <div className="sum-value income">{fmtINR(summaryIncome)}</div>
+            </div>
+            <div className="sum-card">
+              <div className="sum-label">Spent</div>
+              <div className="sum-value expense">{fmtINR(summaryExpense)}</div>
+            </div>
+            <div className="sum-card">
+              <div className="sum-label">Net</div>
+              <div className="sum-value saved">
+                {summaryNet >= 0 ? "+" : "−"}
+                {fmtINR(Math.abs(summaryNet))}
+              </div>
+            </div>
+          </div>
+
+          <div className="summary-meta-row">
+            <div className="recent-count">{summaryEntries.length} entries</div>
+            <div className="history-sub">
+              {MONTH_OPTIONS[summaryMonth]} {summaryYear}
+            </div>
+          </div>
+
+          <div className="category-summary-card">
+            <div className="recent-label">Category totals</div>
+            <div className="category-summary-list">
+              {categoryBreakdown.map((item) => (
+                <div key={item.name} className="category-summary-row">
+                  <div className="category-summary-left">
+                    <div className={`txn-icon category-summary-icon ${item.name === "Income" ? "is-income" : ""}`}>
+                      {item.icon}
+                    </div>
+                    <div>
+                      <div className="txn-cat">{item.name}</div>
+                      <div className="txn-sub">
+                        {item.count === 0 ? "No entries" : `${item.count} ${item.count === 1 ? "entry" : "entries"}`}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`txn-amount ${item.name === "Income" ? "income" : "expense"}`}>
+                    {item.name === "Income" ? "+" : ""}
+                    {fmtINR(item.total)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="history-list summary-list">
+            <div className="history-head">
+              <div className="recent-label">Entries in period</div>
+              <div className="history-sub">Newest first</div>
+            </div>
+            {appLoading ? (
+              <div className="empty-state">Loading summary…</div>
+            ) : summaryEntries.length === 0 ? (
+              <div className="empty-state">No entries for this month yet</div>
+            ) : (
+              summaryEntries.map((entry) => (
+                <TxnRow
+                  key={entry.id}
+                  deletingId={deletingId}
+                  e={entry}
+                  onDelete={handleDelete}
+                  showDate
+                />
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {tab === "chart" && (
         <div className="chart-panel-shell">
           <Suspense fallback={<div className="empty-state chart-loading">Loading charts…</div>}>
@@ -461,6 +655,7 @@ export default function App() {
         {[
           { id: "add", label: "Add" },
           { id: "history", label: "History" },
+          { id: "summary", label: "Summary" },
           { id: "chart", label: "Chart" },
         ].map((item) => (
           <button
