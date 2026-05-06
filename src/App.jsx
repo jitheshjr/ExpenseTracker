@@ -87,15 +87,7 @@ export default function App() {
       amount: val, category, note, date,
     }]);
     setLoading(false);
-    if (!error) {
-      setAmount(""); setNote(""); setDate(todayStr());
-      const msg =
-        category === "Income"      ? "Income recorded"      :
-        category === "Mutual Fund" ? "Investment recorded"  :
-        "Expense added";
-      showToast(msg);
-      fetchExpenses();
-    }
+    if (error) { console.error("Supabase error:", error.message); return; }
   }
 
   function showToast(msg) {
