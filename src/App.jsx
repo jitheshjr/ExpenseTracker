@@ -57,29 +57,47 @@ function CustomTooltip({ active, payload, label }) {
 // ── Login Screen ──────────────────────────────────────────────────
 
 function LoginScreen() {
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [mode,     setMode]     = useState("login"); // "login" | "signup"
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
+  const [email,   setEmail]   = useState("");
+  const [sent,    setSent]    = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
 
   async function handleSubmit() {
-    if (!email || !password) return;
+    if (!email) return;
     setLoading(true);
     setError("");
-
-    let result;
-    if (mode === "login") {
-      result = await supabase.auth.signInWithPassword({ email, password });
-    } else {
-      result = await supabase.auth.signUp({ email, password });
-    }
-
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true }, // creates account if new user
+    });
     setLoading(false);
-    if (result.error) {
-      setError(result.error.message);
-    }
+    if (error) setError(error.message);
+    else setSent(true);
   }
+
+  if (sent) return (
+    <div style={{
+      maxWidth: 420, margin: "0 auto", minHeight: "100svh",
+      display: "flex", flexDirection: "column", justifyContent: "center",
+      padding: "0 24px", textAlign: "center",
+    }}>
+      <div style={{ fontSize: 36, marginBottom: 20 }}>📬</div>
+      <div style={{ fontFamily: "var(--serif)", fontSize: 24, color: "var(--white)", marginBottom: 12 }}>
+        Check your email
+      </div>
+      <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--gray-4)", lineHeight: 1.8 }}>
+        We sent a magic link to<br />
+        <span style={{ color: "var(--gray-2)" }}>{email}</span><br /><br />
+        Click the link in the email to sign in.
+      </div>
+      <button
+        onClick={() => setSent(false)}
+        style={{ marginTop: 32, background: "none", border: "none", fontFamily: "var(--mono)", fontSize: 12, color: "var(--gray-4)", cursor: "pointer" }}
+      >
+        ← use a different email
+      </button>
+    </div>
+  );
 
   return (
     <div style={{
@@ -87,20 +105,15 @@ function LoginScreen() {
       display: "flex", flexDirection: "column", justifyContent: "center",
       padding: "0 24px",
     }}>
-      {/* Header */}
       <div style={{ marginBottom: 48 }}>
-        <div style={{
-          fontFamily: "var(--serif)", fontSize: 32,
-          color: "var(--white)", letterSpacing: "-0.5px", marginBottom: 6,
-        }}>
+        <div style={{ fontFamily: "var(--serif)", fontSize: 32, color: "var(--white)", letterSpacing: "-0.5px", marginBottom: 6 }}>
           Expense Tracker
         </div>
         <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--gray-4)" }}>
-          {mode === "login" ? "Sign in to your account" : "Create a new account"}
+          Enter your email to receive a magic link
         </div>
       </div>
 
-      {/* Form */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
           <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--gray-4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
@@ -118,20 +131,6 @@ function LoginScreen() {
           />
         </div>
 
-        <div>
-          <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--gray-4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
-            Password
-          </div>
-          <input
-            className="note-input"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSubmit()}
-          />
-        </div>
-
         {error && (
           <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "#888", background: "var(--bg2)", border: "1px solid var(--border2)", borderRadius: 8, padding: "10px 14px" }}>
             {error}
@@ -141,21 +140,10 @@ function LoginScreen() {
         <button
           className="add-btn"
           onClick={handleSubmit}
-          disabled={loading || !email || !password}
+          disabled={loading || !email}
           style={{ marginTop: 8 }}
         >
-          {loading ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
-        </button>
-
-        <button
-          onClick={() => { setMode(m => m === "login" ? "signup" : "login"); setError(""); }}
-          style={{
-            background: "none", border: "none", fontFamily: "var(--mono)",
-            fontSize: 12, color: "var(--gray-4)", cursor: "pointer",
-            padding: "8px 0", textAlign: "center",
-          }}
-        >
-          {mode === "login" ? "No account? Sign up" : "Have an account? Sign in"}
+          {loading ? "Sending…" : "Send Magic Link"}
         </button>
       </div>
     </div>
