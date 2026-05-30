@@ -1,6 +1,4 @@
-# ------------------------------
 # Logs
-# ------------------------------
 logs
 *.log
 npm-debug.log*
@@ -9,52 +7,34 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# ------------------------------
 # Dependencies
-# ------------------------------
 node_modules/
 
-# ------------------------------
 # Build outputs
-# ------------------------------
 dist/
 dist-ssr/
 
-# ------------------------------
 # Environment variables
-# ------------------------------
 .env
 .env.*
 !.env.example
 
-# ------------------------------
 # Local files
-# ------------------------------
 *.local
 
-# ------------------------------
 # Editor & IDE files
-# ------------------------------
 .vscode/*
 !.vscode/extensions.json
 .idea/
 
-# ------------------------------
 # OS files
-# ------------------------------
 .DS_Store
 
-# ------------------------------
-# Visual Studio files
-# ------------------------------
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-
-# ------------------------------
 # Swap files
-# ------------------------------
 *.sw?
 
-.codex
+# PWA generated icons
+public/pwa-192x192.png
+public/pwa-512x512.png
+public/sw.js
+public/workbox-*.js
