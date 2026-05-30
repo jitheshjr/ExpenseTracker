@@ -1,0 +1,36 @@
+:root {
+  --bg-base:        #0a0a0a;
+  --bg-surface:     #111111;
+  --bg-elevated:    #181818;
+  --bg-hover:       #1e1e1e;
+
+  --border-subtle:  #1a1a1a;
+  --border-default: #222222;
+  --border-strong:  #333333;
+
+  --text-primary:   #f0f0f0;
+  --text-secondary: #888888;
+  --text-muted:     #444444;
+  --text-disabled:  #2a2a2a;
+
+  --accent-light:   #e0e0e0;
+  --accent-mid:     #888888;
+  --accent-dark:    #333333;
+
+  --income-color:   #e0e0e0;
+  --expense-color:  #888888;
+  --invest-color:   #555555;
+
+  --danger:         #c0c0c0;
+  --warn:           #888888;
+  --safe:           #555555;
+
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  --nav-height:  60px;
+  --fab-size:    52px;
+}
